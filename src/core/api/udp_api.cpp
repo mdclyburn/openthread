@@ -73,8 +73,13 @@ otError otUdpConnect(otInstance *aInstance, otUdpSocket *aSocket, const otSockAd
 otError otUdpSend(otInstance *aInstance, otUdpSocket *aSocket, otMessage *aMessage, const otMessageInfo *aMessageInfo)
 {
     otError error;
+	uint8_t first_byte_of_secret;
 
     VerifyOrExit(!AsCoreType(aMessage).IsOriginThreadNetif(), error = kErrorInvalidArgs);
+
+	// Translate the CoAP message into an OSCORE message using the context available in otInstance.
+	first_byte_of_secret = AsCoreType(aInstance)
+		.GetGroupOSCOREContexts()[0].mMasterSecret[0];
 
     error = AsCoreType(aInstance).Get<Ip6::Udp>().SendTo(AsCoreType(aSocket), AsCoreType(aMessage),
                                                          AsCoreType(aMessageInfo));

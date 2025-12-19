@@ -57,6 +57,7 @@
 #include "common/uptime.hpp"
 #include "diags/factory_diags.hpp"
 #include "instance/extension.hpp"
+#include "instance/isle.hpp"
 #include "mac/link_raw.hpp"
 #include "radio/radio.hpp"
 #include "utils/otns.hpp"
@@ -397,6 +398,8 @@ public:
      */
     void ResetBufferInfo(void);
 
+	GroupOSCOREContext* GetGroupOSCOREContexts(void);
+
 #endif // OPENTHREAD_MTD || OPENTHREAD_FTD
 
     /**
@@ -449,6 +452,10 @@ private:
 #if OPENTHREAD_CONFIG_UPTIME_ENABLE
     Uptime mUptime;
 #endif
+
+	// Group OSCORE contexts.
+	// Hard-code two in here for now; forces us to handle multi-group membership.
+	GroupOSCOREContext mGroupOscoreContexts[2];
 
 #if OPENTHREAD_MTD || OPENTHREAD_FTD
     // Notifier, TimeTicker, Settings, and MessagePool are initialized
