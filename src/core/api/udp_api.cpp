@@ -72,6 +72,10 @@ otError otUdpConnect(otInstance *aInstance, otUdpSocket *aSocket, const otSockAd
 }
 
 static uint8_t g_wbuf[64];
+// Mapping indicating class E options.
+// E.g., is option 4, ETag, class E? g_coap_e_options & 4.
+static uint32_t g_coap_e_options =
+	0b010011101001101101001;
 
 otError __otUdpCoapSecure(
 	otInstance *aInstance,
@@ -82,30 +86,45 @@ otError __otUdpCoapSecure(
 	GroupOSCOREContext* gosc_ctx;
 	otMessage* outMessage;
 	otCoapOptionIterator coapOptionIt;
+	uint8_t prevCoapOptionNumber;
 	// Work buffer offset index.
 	uint16_t wi;
 	const uint8_t* myAddr;
 
 	// ===== Step 1: Form the OSCORE plaintext.
 	// The plaintext consists of:
-	// - E-class options
 	// - the code
+	// - E-class options
 	// - the payload
 	// - AAD (OSCORE version no., AEAD algo. used, kid [sender ID], piv [partial IV])
+	wi = 0;
+
+	// Get the CoAP code.
+	g_wbuf[wi++] = otCoapMessageGetCode(*aMessage);
 
 	// Collect all of the class E options.
+	prevCoapOptionNumber = 0;
 	VerifyOrExit((err = otCoapOptionIteratorInit(&coapOptionIt, *aMessage)) == OT_ERROR_NONE);
 	for (const otCoapOption* presentOption = otCoapOptionIteratorGetNextOption(&coapOptionIt);
 		 presentOption != NULL;
 		 presentOption = otCoapOptionIteratorGetNextOption(&coapOptionIt)) {
-
+		if ((g_coap_e_options & presentOption->mNumber)) {
+			// Tag
+			// TODO: handle large option deltas (> 12).
+			g_wbuf[wi] = (presentOption->mNumber - prevCoapOptionNumber) & 0b00001111;
+			// Length
+			g_wbuf[wi++] |= presentOption->mLength << 4;
+			// Value
+			otCoapOptionIteratorGetOptionValue(
+				&coapOptionIt,
+				(g_wbuf + wi));
+			wi += presentOption->mLength;
+		}
 	}
 
 	// Retrieve the Group OSCORE context based on the destination.
 	// TODO: correctly determine the Group OSCORE context.
 	gosc_ctx = AsCoreType(aInstance).GetGroupOSCOREContexts();
-
-	wi = 0;
 
 	// Add the AAD.
 	g_wbuf[wi++] = (4 << 5) | (4); // Array, 4 items.
