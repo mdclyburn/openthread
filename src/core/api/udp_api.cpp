@@ -122,6 +122,14 @@ otError __otUdpCoapSecure(
 		}
 	}
 
+	// The payload.
+	otMessageRead(
+		*aMessage,
+		0,
+		(void*) (g_wbuf + wi),
+		otMessageGetLength(*aMessage));
+	wi += otMessageGetLength(*aMessage);
+
 	// Retrieve the Group OSCORE context based on the destination.
 	// TODO: correctly determine the Group OSCORE context.
 	gosc_ctx = AsCoreType(aInstance).GetGroupOSCOREContexts();
