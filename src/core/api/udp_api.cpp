@@ -39,6 +39,8 @@
 #include "common/as_core_type.hpp"
 #include "common/locator_getters.hpp"
 
+#include <libtock/crypto/isle.h>
+
 using namespace ot;
 
 otMessage *otUdpNewMessage(otInstance *aInstance, const otMessageSettings *aSettings)
@@ -71,7 +73,9 @@ otError otUdpConnect(otInstance *aInstance, otUdpSocket *aSocket, const otSockAd
     return AsCoreType(aInstance).Get<Ip6::Udp>().Connect(AsCoreType(aSocket), AsCoreType(aSockName));
 }
 
-static uint8_t g_wbuf[64];
+#define ISLE_WORK_BUFFER_LEN ((uint32_t) 64)
+static uint8_t g_wbuf[ISLE_WORK_BUFFER_LEN];
+static uint8_t g_obuf[ISLE_WORK_BUFFER_LEN];
 // Mapping indicating class E options.
 // E.g., is option 4, ETag, class E? g_coap_e_options & 4.
 static uint32_t g_coap_e_options =
@@ -163,6 +167,23 @@ otError __otUdpCoapSecure(
 	for (uint8_t i = 1; i < 8; i++) { g_wbuf[wi++] = myAddr[i]; }
 	// Item 4, Partial IV (uses the sender sequence no.).
 	g_wbuf[wi++] = gosc_ctx->mSenderSequenceNumber++; // Increment the sequence no. for the next message.
+
+	// Get the OS to encrypt this buffer.
+	// Based on ISLE grouping, the OS will accept or reject it.
+	// TODO: we can run a check earlier to save computation.
+	VerifyOrExit(
+		RETURNCODE_SUCCESS == libtock_isle_allow_ro_set_in_buffer(
+			g_wbuf,
+			ISLE_WORK_BUFFER_LEN),
+		err = OT_ERROR_FAILED);
+	VerifyOrExit(
+		RETURNCODE_SUCCESS == libtock_isle_allow_rw_set_out_buffer(
+			g_obuf,
+			ISLE_WORK_BUFFER_LEN),
+		err = OT_ERROR_FAILED);
+	VerifyOrExit(
+		RETURNCODE_SUCCESS == libtock_isle_command_encrypt(wi),
+		err = OT_ERROR_FAILED);
 
 	// This is the transformed message the caller should work with.
 	*aMessage = NULL;
