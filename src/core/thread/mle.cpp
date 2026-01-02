@@ -33,6 +33,8 @@
 
 #include "mle.hpp"
 
+#include <libtock/crypto/isle.h>
+
 #include <openthread/platform/radio.h>
 #include <openthread/platform/time.h>
 
@@ -348,6 +350,25 @@ void Mle::SetRole(DeviceRole aRole)
         // then rx-on/off mode changes are allowed without re-attach.
 
         mInitiallyAttachedAsSleepy = !GetDeviceMode().IsRxOnWhenIdle();
+
+		if (!mInitiallyAttachedAsSleepy)
+		{
+			const uint8_t mleidPrefix[] = { 0xfd };
+			for (const Ip6::Netif::UnicastAddress* currUnicastAddress =
+					 Instance::Get()
+					 .Get<ot::ThreadNetif>()
+					 .GetUnicastAddresses()
+					 .GetHead();
+				 currUnicastAddress != nullptr;
+				 currUnicastAddress = currUnicastAddress->GetNext())
+			{
+				if (currUnicastAddress->GetAddress().MatchesPrefix(mleidPrefix, 1))
+				{
+					// Indicate to Tock.
+					libtock_isle_command_set_address(currUnicastAddress->GetAddress().GetBytes());
+				}
+			}
+		}
     }
 
 exit:
