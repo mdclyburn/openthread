@@ -353,6 +353,7 @@ void Mle::SetRole(DeviceRole aRole)
 
 		if (!mInitiallyAttachedAsSleepy)
 		{
+			// Notify Tock of the unicast address of the node.
 			const uint8_t mleidPrefix[] = { 0xfd };
 			for (const Ip6::Netif::UnicastAddress* currUnicastAddress =
 					 Instance::Get()
@@ -364,7 +365,6 @@ void Mle::SetRole(DeviceRole aRole)
 			{
 				if (currUnicastAddress->GetAddress().MatchesPrefix(mleidPrefix, 1))
 				{
-					// Indicate to Tock.
 					libtock_isle_command_set_address(currUnicastAddress->GetAddress().GetBytes());
 				}
 			}

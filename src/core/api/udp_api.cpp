@@ -94,6 +94,7 @@ otError __otUdpCoapSecure(
 	// Work buffer offset index.
 	uint16_t wi;
 	const uint8_t* myAddr;
+	returncode_t tock_cmd_rval;
 
 	// ===== Step 1: Form the OSCORE plaintext.
 	// The plaintext consists of:
@@ -168,7 +169,7 @@ otError __otUdpCoapSecure(
 	// Item 4, Partial IV (uses the sender sequence no.).
 	g_wbuf[wi++] = gosc_ctx->mSenderSequenceNumber++; // Increment the sequence no. for the next message.
 
-	// Get the OS to encrypt this buffer.
+	// Get the OS to process, encrypt this buffer.
 	// Based on ISLE grouping, the OS will accept or reject it.
 	// TODO: we can run a check earlier to save computation.
 	VerifyOrExit(
@@ -181,9 +182,15 @@ otError __otUdpCoapSecure(
 			g_obuf,
 			ISLE_WORK_BUFFER_LEN),
 		err = OT_ERROR_FAILED);
+
+    tock_cmd_rval = libtock_isle_command_encrypt(wi);
+	libtock_isle_allow_ro_set_in_buffer(NULL, 0);
+	libtock_isle_allow_rw_set_out_buffer(NULL, 0);
 	VerifyOrExit(
-		RETURNCODE_SUCCESS == libtock_isle_command_encrypt(wi),
+		tock_cmd_rval == RETURNCODE_SUCCESS,
 		err = OT_ERROR_FAILED);
+
+	// Build a new message from the encrypted data.
 
 	// This is the transformed message the caller should work with.
 	*aMessage = NULL;
