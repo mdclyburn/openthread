@@ -87,7 +87,6 @@ otError __otUdpCoapSecure(
 	otMessage *aMessage)
 {
 	otError err = OT_ERROR_NONE;
-	GroupOSCOREContext* gosc_ctx;
 	otCoapOptionIterator coapOptionIt;
 	uint8_t prevCoapOptionNumber;
 	// Work buffer offset index.
@@ -149,10 +148,6 @@ otError __otUdpCoapSecure(
 		otMessageGetLength(aMessage));
 	wi += otMessageGetLength(aMessage);
 
-	// Retrieve the Group OSCORE context based on the destination.
-	// TODO: correctly determine the Group OSCORE context.
-	gosc_ctx = AsCoreType(aInstance).GetGroupOSCOREContexts();
-
 	// Add the AAD.
 	g_wbuf[wi++] = (4 << 5) | (4); // Array, 4 items.
 
@@ -181,7 +176,11 @@ otError __otUdpCoapSecure(
 	// The length is constrained to the nonce length - 6 (13 - 6 = 7).
 	for (uint8_t i = 1; i < 8; i++) { g_wbuf[wi++] = myAddr[i]; }
 	// Item 4, Partial IV (uses the sender sequence no.).
-	g_wbuf[wi++] = gosc_ctx->mSenderSequenceNumber++; // Increment the sequence no. for the next message.
+	// The OS will handle this field.
+	g_wbuf[wi++] = 0xFE;
+	g_wbuf[wi++] = 0xFE;
+	g_wbuf[wi++] = 0xFE;
+	g_wbuf[wi++] = 0xFE;
 
 	// Get the OS to process, encrypt this buffer.
 	// Based on ISLE grouping, the OS will accept or reject it.

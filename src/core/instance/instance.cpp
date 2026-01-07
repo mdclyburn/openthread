@@ -275,11 +275,6 @@ Instance::Instance(void)
     , mIsInitialized(false)
     , mId(Random::NonCrypto::GetUint32())
 {
-	// Get the application's Group OSCORE contexts
-	// TODO: these are actually supposed to come from the kernel,
-	// but we hard-code these in here for now.
-	this->mGroupOscoreContexts[0].mMasterSecret[0] = 0x12;
-	this->mGroupOscoreContexts[0].mMasterSecret[1] = 0x34;
 }
 
 #if (OPENTHREAD_MTD || OPENTHREAD_FTD) && !OPENTHREAD_CONFIG_HEAP_EXTERNAL_ENABLE
@@ -488,11 +483,6 @@ void Instance::GetBufferInfo(BufferInfo &aInfo)
 }
 
 void Instance::ResetBufferInfo(void) { Get<MessagePool>().ResetMaxUsedBufferCount(); }
-
-GroupOSCOREContext* Instance::GetGroupOSCOREContexts(void)
-{
-	return this->mGroupOscoreContexts;
-}
 
 #endif // OPENTHREAD_MTD || OPENTHREAD_FTD
 
