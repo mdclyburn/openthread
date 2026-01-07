@@ -368,6 +368,10 @@ void Mle::SetRole(DeviceRole aRole)
 					libtock_isle_command_set_address(currUnicastAddress->GetAddress().GetBytes());
 				}
 			}
+
+			// Register callback for completing message transmission.
+			libtock_isle_subscribe_out_message_ready(
+				__otIsleFinishUdpSend);
 		}
     }
 

@@ -1,4 +1,7 @@
+#include <stdbool.h>
 #include <stdint.h>
+
+#include <libtock/tock.h>
 
 struct GroupOSCOREContext {
 	/// Byte-string used to derive keys.
@@ -12,3 +15,16 @@ struct GroupOSCOREContext {
 	/// The sender sequence number (used as the partial IV when sending messages.
 	uint32_t mSenderSequenceNumber;
 };
+
+returncode_t
+otIsleWaitForMessageReady();
+
+uint32_t
+otIsleGetOutMessageLength();
+
+void
+__otIsleFinishUdpSend(
+	int arg0,
+	int arg1,
+	int arg2,
+	void* data);

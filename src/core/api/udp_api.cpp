@@ -76,6 +76,7 @@ otError otUdpConnect(otInstance *aInstance, otUdpSocket *aSocket, const otSockAd
 #define ISLE_WORK_BUFFER_LEN ((uint32_t) 64)
 static uint8_t g_wbuf[ISLE_WORK_BUFFER_LEN];
 static uint8_t g_obuf[ISLE_WORK_BUFFER_LEN];
+static uint8_t g_opts[ISLE_WORK_BUFFER_LEN];
 // Mapping indicating class E options.
 // E.g., is option 4, ETag, class E? g_coap_e_options & 4.
 static uint32_t g_coap_e_options =
@@ -83,16 +84,16 @@ static uint32_t g_coap_e_options =
 
 otError __otUdpCoapSecure(
 	otInstance *aInstance,
-	otMessage **aMessage,
-	const otMessageInfo *aMessageInfo)
+	otMessage *aMessage)
 {
 	otError err = OT_ERROR_NONE;
 	GroupOSCOREContext* gosc_ctx;
-	otMessage* outMessage;
 	otCoapOptionIterator coapOptionIt;
 	uint8_t prevCoapOptionNumber;
 	// Work buffer offset index.
 	uint16_t wi;
+	// Options buffer offset index.
+	uint16_t oi;
 	const uint8_t* myAddr;
 	returncode_t tock_cmd_rval;
 
@@ -103,17 +104,18 @@ otError __otUdpCoapSecure(
 	// - the payload
 	// - AAD (OSCORE version no., AEAD algo. used, kid [sender ID], piv [partial IV])
 	wi = 0;
+	oi = 0;
 
 	// Get the CoAP code.
-	g_wbuf[wi++] = otCoapMessageGetCode(*aMessage);
+	g_wbuf[wi++] = otCoapMessageGetCode(aMessage);
 
 	// Collect all of the class E options.
 	prevCoapOptionNumber = 0;
-	VerifyOrExit((err = otCoapOptionIteratorInit(&coapOptionIt, *aMessage)) == OT_ERROR_NONE);
+	VerifyOrExit((err = otCoapOptionIteratorInit(&coapOptionIt, aMessage)) == OT_ERROR_NONE);
 	for (const otCoapOption* presentOption = otCoapOptionIteratorGetNextOption(&coapOptionIt);
 		 presentOption != NULL;
 		 presentOption = otCoapOptionIteratorGetNextOption(&coapOptionIt)) {
-		if ((g_coap_e_options & presentOption->mNumber)) {
+		if ((g_coap_e_options & (1 <<presentOption->mNumber))) {
 			// Tag
 			// TODO: handle large option deltas (> 12).
 			g_wbuf[wi] = (presentOption->mNumber - prevCoapOptionNumber) & 0b00001111;
@@ -124,16 +126,28 @@ otError __otUdpCoapSecure(
 				&coapOptionIt,
 				(g_wbuf + wi));
 			wi += presentOption->mLength;
+		} else {
+			// Save class U options for later.
+			// Tag
+			// TODO: handle large option deltas (> 12).
+			g_opts[oi] = (presentOption->mNumber - prevCoapOptionNumber) & 0b00001111;
+			// Length
+			g_opts[oi++] |= presentOption->mLength << 4;
+			// Value
+			otCoapOptionIteratorGetOptionValue(
+				&coapOptionIt,
+				(g_opts + oi));
+			oi += presentOption->mLength;
 		}
 	}
 
 	// The payload.
 	otMessageRead(
-		*aMessage,
+		aMessage,
 		0,
 		(void*) (g_wbuf + wi),
-		otMessageGetLength(*aMessage));
-	wi += otMessageGetLength(*aMessage);
+		otMessageGetLength(aMessage));
+	wi += otMessageGetLength(aMessage);
 
 	// Retrieve the Group OSCORE context based on the destination.
 	// TODO: correctly determine the Group OSCORE context.
@@ -183,17 +197,53 @@ otError __otUdpCoapSecure(
 			ISLE_WORK_BUFFER_LEN),
 		err = OT_ERROR_FAILED);
 
-    tock_cmd_rval = libtock_isle_command_encrypt(wi);
-	libtock_isle_allow_ro_set_in_buffer(NULL, 0);
-	libtock_isle_allow_rw_set_out_buffer(NULL, 0);
+	// Wait for the message to be ready.
+	tock_cmd_rval = otIsleWaitForMessageReady();
+	if (tock_cmd_rval != RETURNCODE_SUCCESS) {
+	    libtock_isle_allow_ro_set_in_buffer(NULL, 0);
+		libtock_isle_allow_rw_set_out_buffer(NULL, 0);
+	}
+
+	// Build the final message.
+	// Initialize the message for CoAP.
+	wi = 0;
+	// Version, Type, Token Length (4 bytes)
+	g_wbuf[wi++] = 0b10000001;
+	// Code
+	g_wbuf[wi++] = 0b01000101;
+	// Message ID
+	g_wbuf[wi++] = 0b00000000;
+	g_wbuf[wi++] = 0b00000000;
+	// Token
+	g_wbuf[wi++] = 0b00101011;
+	g_wbuf[wi++] = 0b00101011;
+	g_wbuf[wi++] = 0b00101011;
+	g_wbuf[wi++] = 0b00101011;
+
+	// Class U options.
+	for (uint8_t i = 0; i < oi; i++) {
+		g_wbuf[wi + i] = g_opts[i];
+	}
+	wi += oi;
+
+	// Payload marker.
+	g_wbuf[wi++] = 0xFF;
+
+	// Payload.
+	for (uint8_t i = 0; i < otIsleGetOutMessageLength(); i++) {
+		g_wbuf[wi++] = g_obuf[i];
+	}
+
+	// Copy the encrypted Group OSCORE message into the existing Message object.
 	VerifyOrExit(
-		tock_cmd_rval == RETURNCODE_SUCCESS,
-		err = OT_ERROR_FAILED);
-
-	// Build a new message from the encrypted data.
-
-	// This is the transformed message the caller should work with.
-	*aMessage = NULL;
+		OT_ERROR_NONE == (err = otMessageSetLength(
+			aMessage,
+			0)));
+	otMessageWrite(
+		aMessage,
+		0,
+		g_obuf,
+		otIsleGetOutMessageLength());
 
 exit:
 	return err;
@@ -207,10 +257,10 @@ otError otUdpSend(otInstance *aInstance, otUdpSocket *aSocket, otMessage *aMessa
     VerifyOrExit(!AsCoreType(aMessage).IsOriginThreadNetif(), error = kErrorInvalidArgs);
 
 	// Translate the CoAP message into a Group OSCORE message.
-    error = __otUdpCoapSecure(
-		aInstance,
-		&aMessage,
-		aMessageInfo);
+    VerifyOrExit(
+		(error = __otUdpCoapSecure(
+			aInstance,
+			aMessage)) == OT_ERROR_NONE);
 
     error = AsCoreType(aInstance).Get<Ip6::Udp>().SendTo(AsCoreType(aSocket), AsCoreType(aMessage),
                                                          AsCoreType(aMessageInfo));
