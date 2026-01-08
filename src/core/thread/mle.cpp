@@ -50,6 +50,7 @@
 #include "common/serial_number.hpp"
 #include "common/settings.hpp"
 #include "instance/instance.hpp"
+#include "instance/isle.hpp"
 #include "meshcop/meshcop.hpp"
 #include "meshcop/meshcop_tlvs.hpp"
 #include "net/netif.hpp"

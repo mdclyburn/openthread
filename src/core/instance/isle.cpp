@@ -7,11 +7,13 @@ static bool __isle_out_message_ready = false;
 static uint32_t __isle_out_message_length;
 
 returncode_t
-otIsleWaitForMessageReady()
+otIsleWaitForMessageReady(
+	const uint32_t messageLength,
+	const uint32_t aadLength)
 {
 	__isle_out_message_ready = false;
 
-    returncode_t tock_cmd_rval = libtock_isle_command_encrypt(wi);
+    returncode_t tock_cmd_rval = libtock_isle_command_encrypt(messageLength, aadLength);
 	if (tock_cmd_rval != RETURNCODE_SUCCESS) {
 		return tock_cmd_rval;
 	}
@@ -38,7 +40,7 @@ __otIsleFinishUdpSend(
 	void* data)
 {
 	__isle_out_message_ready = true;
-	__isle_out_message_length = message_length;
+	__isle_out_message_length = messageLength;
 
 	return;
 }

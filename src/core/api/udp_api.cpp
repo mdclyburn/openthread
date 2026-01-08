@@ -38,6 +38,7 @@
 
 #include "common/as_core_type.hpp"
 #include "common/locator_getters.hpp"
+#include "instance/isle.hpp"
 
 #include <libtock/crypto/isle.h>
 
@@ -91,6 +92,7 @@ otError __otUdpCoapSecure(
 	uint8_t prevCoapOptionNumber;
 	// Work buffer offset index.
 	uint16_t wi;
+	uint16_t message_len;
 	// Options buffer offset index.
 	uint16_t oi;
 	const uint8_t* myAddr;
@@ -147,6 +149,7 @@ otError __otUdpCoapSecure(
 		(void*) (g_wbuf + wi),
 		otMessageGetLength(aMessage));
 	wi += otMessageGetLength(aMessage);
+	message_len = wi;
 
 	// Add the AAD.
 	g_wbuf[wi++] = (4 << 5) | (4); // Array, 4 items.
@@ -197,7 +200,9 @@ otError __otUdpCoapSecure(
 		err = OT_ERROR_FAILED);
 
 	// Wait for the message to be ready.
-	tock_cmd_rval = otIsleWaitForMessageReady();
+	tock_cmd_rval = otIsleWaitForMessageReady(
+		message_len,
+		wi - message_len);
 	if (tock_cmd_rval != RETURNCODE_SUCCESS) {
 	    libtock_isle_allow_ro_set_in_buffer(NULL, 0);
 		libtock_isle_allow_rw_set_out_buffer(NULL, 0);

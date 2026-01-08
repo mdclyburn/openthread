@@ -282,6 +282,7 @@ set(RADIO_COMMON_SOURCES
     crypto/storage.cpp
     diags/factory_diags.cpp
     instance/instance.cpp
+    instance/isle.cpp
     mac/link_raw.cpp
     mac/mac_frame.cpp
     mac/mac_types.cpp
