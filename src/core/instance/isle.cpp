@@ -5,6 +5,7 @@
 
 static bool __isle_out_message_ready = false;
 static uint32_t __isle_out_message_length;
+static int32_t __isle_cb_result;
 
 returncode_t
 otIsleWaitForMessageReady(
@@ -22,7 +23,7 @@ otIsleWaitForMessageReady(
 		yield();
 	}
 
-	return tock_cmd_rval;
+	return (returncode_t) __isle_cb_result;
 }
 
 // Returns the length of the CoAP message payload, including the AEAD tag.
@@ -34,11 +35,17 @@ otIsleGetOutMessageLength()
 
 void
 __otIsleFinishUdpSend(
+	int res,
 	int messageLength,
-	int arg1,
-	int arg2,
+	int arg3,
 	void* data)
 {
+	if (res != 0) {
+		__isle_cb_result = RETURNCODE_FAIL;
+	} else {
+		__isle_cb_result = RETURNCODE_SUCCESS;
+	}
+
 	__isle_out_message_ready = true;
 	__isle_out_message_length = messageLength;
 
