@@ -31,6 +31,8 @@
  *   This file implements the OpenThread UDP API.
  */
 
+#include <stdio.h>
+
 #include "openthread-core-config.h"
 
 #include <openthread/coap.h>
@@ -98,6 +100,7 @@ otError __otUdpCoapSecure(
 	const uint8_t* myAddr;
 	returncode_t tock_cmd_rval;
 
+	// printf("building oscore msg\n");
 	// ===== Step 1: Form the OSCORE plaintext.
 	// The plaintext consists of:
 	// - the code
@@ -141,6 +144,7 @@ otError __otUdpCoapSecure(
 			oi += presentOption->mLength;
 		}
 	}
+	// printf("options size: %d\n", oi);
 
 	// The payload.
 	otMessageRead(
@@ -185,6 +189,8 @@ otError __otUdpCoapSecure(
 	g_wbuf[wi++] = 0xFE;
 	g_wbuf[wi++] = 0xFE;
 
+	// printf("message + aad = %d + %d = %d\n", message_len, wi - message_len, wi);
+
 	// Get the OS to process, encrypt this buffer.
 	// Based on ISLE grouping, the OS will accept or reject it.
 	// TODO: we can run a check earlier to save computation.
@@ -200,13 +206,19 @@ otError __otUdpCoapSecure(
 		err = OT_ERROR_FAILED);
 
 	// Wait for the message to be ready.
+	// printf("awaiting encrypted message to come back\n");
 	tock_cmd_rval = otIsleWaitForMessageReady(
 		message_len,
 		wi - message_len);
 	if (tock_cmd_rval != RETURNCODE_SUCCESS) {
+		printf("ISLE driver failed to process message.\n");
 	    libtock_isle_allow_ro_set_in_buffer(NULL, 0);
 		libtock_isle_allow_rw_set_out_buffer(NULL, 0);
+		return OT_ERROR_FAILED;
 	}
+
+	printf("Got %ld B message back from OS.\n",
+		   otIsleGetOutMessageLength());
 
 	// Build the final message.
 	// Initialize the message for CoAP.
@@ -237,6 +249,7 @@ otError __otUdpCoapSecure(
 	for (uint8_t i = 0; i < otIsleGetOutMessageLength(); i++) {
 		g_wbuf[wi++] = g_obuf[i];
 	}
+	printf("final message size = %d\n", wi);
 
 	// Copy the encrypted Group OSCORE message into the existing Message object.
 	VerifyOrExit(
