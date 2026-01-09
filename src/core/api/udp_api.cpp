@@ -96,6 +96,7 @@ otError __otUdpCoapSecure(
 	uint16_t wi;
 	uint8_t payload_offset;
 	uint8_t rb;
+	uint8_t token_len;
 	uint16_t message_len;
 	// Options buffer offset index.
 	uint16_t oi;
@@ -117,38 +118,55 @@ otError __otUdpCoapSecure(
 		aMessage,
 		1, // byte offset to get to the CoAP code
 		g_wbuf,
-		wi++);
+		1);
+	wi++;
 
-	// Collect all of the class E options.
-	prevCoapOptionNumber = 0;
-	VerifyOrExit((err = otCoapOptionIteratorInit(&coapOptionIt, aMessage)) == OT_ERROR_NONE);
-	for (const otCoapOption* presentOption = otCoapOptionIteratorGetNextOption(&coapOptionIt);
-		 presentOption != NULL;
-		 presentOption = otCoapOptionIteratorGetNextOption(&coapOptionIt)) {
-		if ((g_coap_e_options & (1 << presentOption->mNumber))) {
-			// Tag
-			// TODO: handle large option deltas (> 12).
-			g_wbuf[wi] = (presentOption->mNumber - prevCoapOptionNumber) & 0b00001111;
-			// Length
-			g_wbuf[wi++] |= presentOption->mLength << 4;
-			// Value
-			otCoapOptionIteratorGetOptionValue(
-				&coapOptionIt,
-				(g_wbuf + wi));
-			printf("Got class E option: %d => %d\n", g_wbuf[wi-1], g_wbuf[wi]);
-			wi += presentOption->mLength;
-		} else {
-			// Save class U options for later.
-			// Tag
-			// TODO: handle large option deltas (> 12).
-			g_opts[oi] = (presentOption->mNumber - prevCoapOptionNumber) & 0b00001111;
-			// Length
-			g_opts[oi++] |= presentOption->mLength << 4;
-			// Value
-			otCoapOptionIteratorGetOptionValue(
-				&coapOptionIt,
-				(g_opts + oi));
-			oi += presentOption->mLength;
+	// See if there are options to collect.
+	// Initialize rb to zero and read until we reach the payload marker.
+	otMessageRead(
+		aMessage,
+		0,
+		&token_len,
+		1);
+	token_len = token_len >> 4;
+	otMessageRead(
+		aMessage,
+		4 + token_len,
+		&rb,
+		1);
+	while (rb != 0xFF)
+	{
+		// Collect all of the class E options.
+		prevCoapOptionNumber = 0;
+		VerifyOrExit((err = otCoapOptionIteratorInit(&coapOptionIt, aMessage)) == OT_ERROR_NONE);
+		for (const otCoapOption* presentOption = otCoapOptionIteratorGetNextOption(&coapOptionIt);
+			 presentOption != NULL;
+			 presentOption = otCoapOptionIteratorGetNextOption(&coapOptionIt)) {
+			if ((g_coap_e_options & (1 << presentOption->mNumber))) {
+				// Tag
+				// TODO: handle large option deltas (> 12).
+				g_wbuf[wi] = (presentOption->mNumber - prevCoapOptionNumber) & 0b00001111;
+				// Length
+				g_wbuf[wi++] |= presentOption->mLength << 4;
+				// Value
+				otCoapOptionIteratorGetOptionValue(
+					&coapOptionIt,
+					(g_wbuf + wi));
+				printf("Got class E option: %d => %d\n", g_wbuf[wi-1], g_wbuf[wi]);
+				wi += presentOption->mLength;
+			} else {
+				// Save class U options for later.
+				// Tag
+				// TODO: handle large option deltas (> 12).
+				g_opts[oi] = (presentOption->mNumber - prevCoapOptionNumber) & 0b00001111;
+				// Length
+				g_opts[oi++] |= presentOption->mLength << 4;
+				// Value
+				otCoapOptionIteratorGetOptionValue(
+					&coapOptionIt,
+					(g_opts + oi));
+				oi += presentOption->mLength;
+			}
 		}
 	}
 	printf("Class U options size: %d\n", oi);
