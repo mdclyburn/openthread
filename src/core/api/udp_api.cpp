@@ -117,7 +117,7 @@ otError __otUdpCoapSecure(
 		aMessage,
 		1, // byte offset to get to the CoAP code
 		g_wbuf,
-		1);
+		wi++);
 
 	// Collect all of the class E options.
 	prevCoapOptionNumber = 0;
@@ -125,7 +125,7 @@ otError __otUdpCoapSecure(
 	for (const otCoapOption* presentOption = otCoapOptionIteratorGetNextOption(&coapOptionIt);
 		 presentOption != NULL;
 		 presentOption = otCoapOptionIteratorGetNextOption(&coapOptionIt)) {
-		if ((g_coap_e_options & (1 <<presentOption->mNumber))) {
+		if ((g_coap_e_options & (1 << presentOption->mNumber))) {
 			// Tag
 			// TODO: handle large option deltas (> 12).
 			g_wbuf[wi] = (presentOption->mNumber - prevCoapOptionNumber) & 0b00001111;
@@ -135,6 +135,7 @@ otError __otUdpCoapSecure(
 			otCoapOptionIteratorGetOptionValue(
 				&coapOptionIt,
 				(g_wbuf + wi));
+			printf("Got class E option: %d => %d\n", g_wbuf[wi-1], g_wbuf[wi]);
 			wi += presentOption->mLength;
 		} else {
 			// Save class U options for later.
@@ -150,7 +151,8 @@ otError __otUdpCoapSecure(
 			oi += presentOption->mLength;
 		}
 	}
-	// printf("options size: %d\n", oi);
+	printf("Class U options size: %d\n", oi);
+	printf("Payload size after options: %d B\n", wi);
 
 	// The payload.
 	// Scan until we reach the payload marker.
@@ -163,6 +165,9 @@ otError __otUdpCoapSecure(
 			&rb,
 			1);
 	}
+	printf("CoAP payload at byte offset %d.\n", payload_offset);
+	printf("Total payload size: %d B.\n",
+		   otMessageGetLength(aMessage) - payload_offset);
 
 	otMessageRead(
 		aMessage,
@@ -171,6 +176,7 @@ otError __otUdpCoapSecure(
 		otMessageGetLength(aMessage) - payload_offset);
 	wi += (otMessageGetLength(aMessage) - payload_offset);
 	message_len = wi;
+	printf("set message_len to %d B \n", message_len);
 
 	// Add the AAD.
 	g_wbuf[wi++] = (4 << 5) | (4); // Array, 4 items.
