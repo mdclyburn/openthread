@@ -94,6 +94,8 @@ otError __otUdpCoapSecure(
 	uint8_t prevCoapOptionNumber;
 	// Work buffer offset index.
 	uint16_t wi;
+	uint8_t payload_offset;
+	uint8_t rb;
 	uint16_t message_len;
 	// Options buffer offset index.
 	uint16_t oi;
@@ -111,7 +113,11 @@ otError __otUdpCoapSecure(
 	oi = 0;
 
 	// Get the CoAP code.
-	g_wbuf[wi++] = otCoapMessageGetCode(aMessage);
+	otMessageRead(
+		aMessage,
+		1, // byte offset to get to the CoAP code
+		g_wbuf,
+		1);
 
 	// Collect all of the class E options.
 	prevCoapOptionNumber = 0;
@@ -147,12 +153,23 @@ otError __otUdpCoapSecure(
 	// printf("options size: %d\n", oi);
 
 	// The payload.
+	// Scan until we reach the payload marker.
+	payload_offset = 0;
+	rb = 0x00;
+	while (rb != 0xFF) {
+		otMessageRead(
+			aMessage,
+			payload_offset++,
+			&rb,
+			1);
+	}
+
 	otMessageRead(
 		aMessage,
-		0,
+		payload_offset,
 		(void*) (g_wbuf + wi),
-		otMessageGetLength(aMessage));
-	wi += otMessageGetLength(aMessage);
+		otMessageGetLength(aMessage) - payload_offset);
+	wi += (otMessageGetLength(aMessage) - payload_offset);
 	message_len = wi;
 
 	// Add the AAD.
