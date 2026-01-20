@@ -45,7 +45,10 @@
 #include "common/linked_list.hpp"
 #include "common/locator.hpp"
 #include "common/non_copyable.hpp"
+#include "instance/isle.hpp"
 #include "net/ip6_headers.hpp"
+
+#include <libtock/crypto/isle.h>
 
 namespace ot {
 namespace Ip6 {
@@ -140,6 +143,10 @@ public:
 
         void HandleUdpReceive(Message &aMessage, const MessageInfo &aMessageInfo)
         {
+			otIslePrepareReceivedMessage(
+				aMessage,
+				aMessageInfo);
+
             mHandler(mContext, &aMessage, &aMessageInfo);
         }
     };

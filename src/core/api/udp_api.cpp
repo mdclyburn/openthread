@@ -76,18 +76,11 @@ otError otUdpConnect(otInstance *aInstance, otUdpSocket *aSocket, const otSockAd
     return AsCoreType(aInstance).Get<Ip6::Udp>().Connect(AsCoreType(aSocket), AsCoreType(aSockName));
 }
 
-#define ISLE_WORK_BUFFER_LEN ((uint32_t) 64)
-static uint8_t g_wbuf[ISLE_WORK_BUFFER_LEN];
-static uint8_t g_obuf[ISLE_WORK_BUFFER_LEN];
-static uint8_t g_opts[ISLE_WORK_BUFFER_LEN];
-// Mapping indicating class E options.
-// E.g., is option 4, ETag, class E? g_coap_e_options & 4.
-static uint32_t g_coap_e_options =
-	0b010011101001101101001;
 
 otError __otUdpCoapSecure(
 	otInstance *aInstance,
-	otMessage *aMessage)
+	otMessage *aMessage,
+	otMessage *outMessage)
 {
 	otError err = OT_ERROR_NONE;
 	otCoapOptionIterator coapOptionIt;
@@ -117,7 +110,7 @@ otError __otUdpCoapSecure(
 	otMessageRead(
 		aMessage,
 		1, // byte offset to get to the CoAP code
-		g_wbuf,
+		__isle_wbuf,
 		1);
 	wi++;
 
@@ -142,29 +135,29 @@ otError __otUdpCoapSecure(
 		for (const otCoapOption* presentOption = otCoapOptionIteratorGetNextOption(&coapOptionIt);
 			 presentOption != NULL;
 			 presentOption = otCoapOptionIteratorGetNextOption(&coapOptionIt)) {
-			if ((g_coap_e_options & (1 << presentOption->mNumber))) {
+			if ((ISLE_COAP_CLASS_E_OPTIONS & (1 << presentOption->mNumber))) {
 				// Tag
 				// TODO: handle large option deltas (> 12).
-				g_wbuf[wi] = (presentOption->mNumber - prevCoapOptionNumber) & 0b00001111;
+				__isle_wbuf[wi] = (presentOption->mNumber - prevCoapOptionNumber) & 0b00001111;
 				// Length
-				g_wbuf[wi++] |= presentOption->mLength << 4;
+				__isle_wbuf[wi++] |= presentOption->mLength << 4;
 				// Value
 				otCoapOptionIteratorGetOptionValue(
 					&coapOptionIt,
-					(g_wbuf + wi));
-				printf("Got class E option: %d => %d\n", g_wbuf[wi-1], g_wbuf[wi]);
+					(__isle_wbuf + wi));
+				printf("Got class E option: %d => %d\n", __isle_wbuf[wi-1], __isle_wbuf[wi]);
 				wi += presentOption->mLength;
 			} else {
 				// Save class U options for later.
 				// Tag
 				// TODO: handle large option deltas (> 12).
-				g_opts[oi] = (presentOption->mNumber - prevCoapOptionNumber) & 0b00001111;
+				__isle_opts[oi] = (presentOption->mNumber - prevCoapOptionNumber) & 0b00001111;
 				// Length
-				g_opts[oi++] |= presentOption->mLength << 4;
+				__isle_opts[oi++] |= presentOption->mLength << 4;
 				// Value
 				otCoapOptionIteratorGetOptionValue(
 					&coapOptionIt,
-					(g_opts + oi));
+					(__isle_opts + oi));
 				oi += presentOption->mLength;
 			}
 		}
@@ -190,27 +183,27 @@ otError __otUdpCoapSecure(
 	otMessageRead(
 		aMessage,
 		payload_offset,
-		(void*) (g_wbuf + wi),
+		(void*) (__isle_wbuf + wi),
 		otMessageGetLength(aMessage) - payload_offset);
 	wi += (otMessageGetLength(aMessage) - payload_offset);
 	message_len = wi;
 	printf("set message_len to %d B \n", message_len);
 
 	// Add the AAD.
-	g_wbuf[wi++] = (4 << 5) | (4); // Array, 4 items.
+	__isle_wbuf[wi++] = (4 << 5) | (4); // Array, 4 items.
 
 	// Item 1, OSCORE version.
-	g_wbuf[wi++] = (0b00000000) | 1; // OSCORE version => integer, 1.
+	__isle_wbuf[wi++] = (0b00000000) | 1; // OSCORE version => integer, 1.
 	// Item 2, Algorithms.
-	g_wbuf[wi++] = (0b01000000) | 4; // Algorithms => array, 4 items.
-	g_wbuf[wi++] = (0b00000000) | 10; // AEAD alg.: AES-CCM-16-64-128 => integer, 10.
-	g_wbuf[wi++] = (0b00000000) | 10; // Group enc. algo.: AES-CCM-16-64-128 => integer, 10.
-	g_wbuf[wi++] = (0b00111001); // Sig. Algo.: EdDSA => -8 -> 2-byte unsigned integer extension, 7
-	g_wbuf[wi++] = 0;
-	g_wbuf[wi++] = 7;
-	g_wbuf[wi++] = (0b00111001); // Pairwise key agreement: ECDH-SS + HKDF-256 => -27 -> 2-byte unsigned integer extension, 26
-	g_wbuf[wi++] = 0;
-	g_wbuf[wi++] = 26;
+	__isle_wbuf[wi++] = (0b01000000) | 4; // Algorithms => array, 4 items.
+	__isle_wbuf[wi++] = (0b00000000) | 10; // AEAD alg.: AES-CCM-16-64-128 => integer, 10.
+	__isle_wbuf[wi++] = (0b00000000) | 10; // Group enc. algo.: AES-CCM-16-64-128 => integer, 10.
+	__isle_wbuf[wi++] = (0b00111001); // Sig. Algo.: EdDSA => -8 -> 2-byte unsigned integer extension, 7
+	__isle_wbuf[wi++] = 0;
+	__isle_wbuf[wi++] = 7;
+	__isle_wbuf[wi++] = (0b00111001); // Pairwise key agreement: ECDH-SS + HKDF-256 => -27 -> 2-byte unsigned integer extension, 26
+	__isle_wbuf[wi++] = 0;
+	__isle_wbuf[wi++] = 26;
 	// Item 3, kid (key ID)/sender ID.
     myAddr = otIp6GetUnicastAddresses(aInstance) // HACK; just use the first one.
 		->mAddress    // Get the address...
@@ -222,13 +215,13 @@ otError __otUdpCoapSecure(
 	// The choice of the sender ID is user-defined.
 	// We use the lower 7 bits as the sender ID.
 	// The length is constrained to the nonce length - 6 (13 - 6 = 7).
-	for (uint8_t i = 1; i < 8; i++) { g_wbuf[wi++] = myAddr[i]; }
+	for (uint8_t i = 1; i < 8; i++) { __isle_wbuf[wi++] = myAddr[i]; }
 	// Item 4, Partial IV (uses the sender sequence no.).
 	// The OS will handle this field.
-	g_wbuf[wi++] = 0xFE;
-	g_wbuf[wi++] = 0xFE;
-	g_wbuf[wi++] = 0xFE;
-	g_wbuf[wi++] = 0xFE;
+	__isle_wbuf[wi++] = 0xFE;
+	__isle_wbuf[wi++] = 0xFE;
+	__isle_wbuf[wi++] = 0xFE;
+	__isle_wbuf[wi++] = 0xFE;
 
 	// printf("message + aad = %d + %d = %d\n", message_len, wi - message_len, wi);
 
@@ -237,12 +230,12 @@ otError __otUdpCoapSecure(
 	// TODO: we can run a check earlier to save computation.
 	VerifyOrExit(
 		RETURNCODE_SUCCESS == libtock_isle_allow_ro_set_in_buffer(
-			g_wbuf,
+			__isle_wbuf,
 			ISLE_WORK_BUFFER_LEN),
 		err = OT_ERROR_FAILED);
 	VerifyOrExit(
 		RETURNCODE_SUCCESS == libtock_isle_allow_rw_set_out_buffer(
-			g_obuf,
+			__isle_obuf,
 			ISLE_WORK_BUFFER_LEN),
 		err = OT_ERROR_FAILED);
 
@@ -265,43 +258,35 @@ otError __otUdpCoapSecure(
 	// Initialize the message for CoAP.
 	wi = 0;
 	// Version, Type, Token Length (4 bytes)
-	g_wbuf[wi++] = 0b10000001;
+	__isle_wbuf[wi++] = 0b10000001;
 	// Code
-	g_wbuf[wi++] = 0b01000101;
+	__isle_wbuf[wi++] = 0b01000101;
 	// Message ID
-	g_wbuf[wi++] = 0b00000000;
-	g_wbuf[wi++] = 0b00000000;
+	__isle_wbuf[wi++] = 0b00000000;
+	__isle_wbuf[wi++] = 0b00000000;
 	// Token
-	g_wbuf[wi++] = 0b00101011;
-	g_wbuf[wi++] = 0b00101011;
-	g_wbuf[wi++] = 0b00101011;
-	g_wbuf[wi++] = 0b00101011;
+	__isle_wbuf[wi++] = 0b00101011;
+	__isle_wbuf[wi++] = 0b00101011;
+	__isle_wbuf[wi++] = 0b00101011;
+	__isle_wbuf[wi++] = 0b00101011;
 
 	// Class U options.
 	for (uint8_t i = 0; i < oi; i++) {
-		g_wbuf[wi + i] = g_opts[i];
+		__isle_wbuf[wi + i] = __isle_opts[i];
 	}
 	wi += oi;
 
 	// Payload marker.
-	g_wbuf[wi++] = 0xFF;
+	__isle_wbuf[wi++] = 0xFF;
 
 	// Payload.
 	for (uint8_t i = 0; i < otIsleGetOutMessageLength(); i++) {
-		g_wbuf[wi++] = g_obuf[i];
+		__isle_wbuf[wi++] = __isle_obuf[i];
 	}
 	printf("final message size = %d\n", wi);
 
-	// Copy the encrypted Group OSCORE message into the existing Message object.
-	VerifyOrExit(
-		OT_ERROR_NONE == (err = otMessageSetLength(
-			aMessage,
-			0)));
-	otMessageWrite(
-		aMessage,
-		0,
-		g_obuf,
-		otIsleGetOutMessageLength());
+	otMessageFree(aMessage);
+	otMessageAppend(outMessage, __isle_wbuf, wi);
 
 exit:
 	return err;
@@ -310,18 +295,27 @@ exit:
 otError otUdpSend(otInstance *aInstance, otUdpSocket *aSocket, otMessage *aMessage, const otMessageInfo *aMessageInfo)
 {
     otError error;
-	// uint8_t first_byte_of_secret;
+	uint16_t partial_header;
 
     VerifyOrExit(!AsCoreType(aMessage).IsOriginThreadNetif(), error = kErrorInvalidArgs);
 
 	// Translate the CoAP message into a Group OSCORE message.
-    VerifyOrExit(
-		(error = __otUdpCoapSecure(
-			aInstance,
-			aMessage)) == OT_ERROR_NONE);
+	// Quick test to make sure this is a CoAP message.
+    if (aMessageInfo->mPeerPort == 5683) {
+		otMessage* const outMessage = otUdpNewMessage(aInstance, NULL);
+		VerifyOrExit(
+			(error = __otUdpCoapSecure(
+				aInstance,
+				aMessage,
+				outMessage)) == OT_ERROR_NONE);
 
-    error = AsCoreType(aInstance).Get<Ip6::Udp>().SendTo(AsCoreType(aSocket), AsCoreType(aMessage),
+		printf("[otisle] transformation done; sending\n");
+		error = AsCoreType(aInstance).Get<Ip6::Udp>().SendTo(AsCoreType(aSocket), AsCoreType(outMessage),
+															 AsCoreType(aMessageInfo));
+	} else {
+		error = AsCoreType(aInstance).Get<Ip6::Udp>().SendTo(AsCoreType(aSocket), AsCoreType(aMessage),
                                                          AsCoreType(aMessageInfo));
+	}
 
 exit:
     return error;
