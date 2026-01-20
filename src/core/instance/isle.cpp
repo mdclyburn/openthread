@@ -19,11 +19,21 @@ static int32_t __isle_cb_result;
 returncode_t
 otIsleWaitForMessageReady(
 	const uint32_t messageLength,
-	const uint32_t aadLength)
+	const uint32_t aadLength,
+	const bool is_encrypt)
 {
 	__isle_out_message_ready = false;
 
-    returncode_t tock_cmd_rval = libtock_isle_command_encrypt(messageLength, aadLength);
+    returncode_t tock_cmd_rval;
+	if (is_encrypt)
+	{
+		tock_cmd_rval = libtock_isle_command_encrypt(messageLength, aadLength);
+	}
+	else
+	{
+		tock_cmd_rval = libtock_isle_command_decrypt(messageLength, aadLength);
+	}
+
 	if (tock_cmd_rval != RETURNCODE_SUCCESS) {
 		return tock_cmd_rval;
 	}
@@ -72,7 +82,7 @@ otIsleBuildAad(
 	uint16_t payload_offset = 0;
 	const uint8_t payload_marker = 0xFF;
 	while (!message.CompareBytes(
-			   0,
+			   payload_offset,
 			   &payload_marker,
 			   1)
 		   && payload_offset < message.GetLength())
@@ -127,7 +137,8 @@ otIsleBuildAad(
 	// Wait for the message to be ready.
 	returncode_t tock_cmd_rval = otIsleWaitForMessageReady(
 		message_len,
-		wi - message_len);
+		wi - message_len,
+		false);
 	if (tock_cmd_rval != RETURNCODE_SUCCESS) {
 		printf("ISLE driver failed to process message.\n");
 	    libtock_isle_allow_ro_set_in_buffer(NULL, 0);
@@ -138,6 +149,14 @@ otIsleBuildAad(
 
 	printf("Got %ld B message back from OS.\n",
 		   otIsleGetOutMessageLength());
+
+	// Take the buffers back.
+    libtock_isle_allow_ro_set_in_buffer(
+	    NULL,
+	    0);
+    libtock_isle_allow_rw_set_out_buffer(
+		NULL,
+		0);
 
 	// Replace the contents of the message buffer with the decrypted message.
 	message.WriteBytes(
@@ -155,11 +174,11 @@ otIslePrepareReceivedMessage(
 {
 	// printf("[otisle] got message from peer port %d\n",
 	// 	   inMessageInfo.GetSockPort());
-	// if (inMessageInfo.GetSockPort() == 5683)
-	// {
-	// 	printf("[otisle] processing received %d B message\n", inMessage.GetLength());
-	// 	otIsleBuildAad(inMessage, inMessageInfo);
-	// }
+	if (inMessageInfo.GetSockPort() == 5683)
+	{
+		printf("[otisle] processing received %d B message\n", inMessage.GetLength());
+		otIsleBuildAad(inMessage, inMessageInfo);
+	}
 
 	return RETURNCODE_SUCCESS;
 }

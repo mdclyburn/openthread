@@ -243,7 +243,8 @@ otError __otUdpCoapSecure(
 	// printf("awaiting encrypted message to come back\n");
 	tock_cmd_rval = otIsleWaitForMessageReady(
 		message_len,
-		wi - message_len);
+		wi - message_len,
+		true);
 	if (tock_cmd_rval != RETURNCODE_SUCCESS) {
 		printf("ISLE driver failed to process message.\n");
 	    libtock_isle_allow_ro_set_in_buffer(NULL, 0);

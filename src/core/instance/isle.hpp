@@ -20,7 +20,8 @@ extern uint8_t __isle_opts[ISLE_WORK_BUFFER_LEN];
 returncode_t
 otIsleWaitForMessageReady(
 	const uint32_t messageLength,
-	const uint32_t aadLength);
+	const uint32_t aadLength,
+	const bool is_encrypt);
 
 uint32_t
 otIsleGetOutMessageLength();
