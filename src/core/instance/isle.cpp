@@ -87,6 +87,10 @@ otIsleBuildAad(
 			   1)
 		   && payload_offset < message.GetLength())
 		payload_offset++;
+	// NOTE: payload_offset is currently located at the payload marker.
+	// So, processing will include it.
+	// Since the capsule is doing math in a way that still gets the right size of the payload,
+	// this is not a problem, but should be fixed at some point to actually point to the start of the payload.
 
 	printf("[otisle] payload is at %d bytes\n", payload_offset);
 

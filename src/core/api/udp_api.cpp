@@ -43,6 +43,7 @@
 #include "instance/isle.hpp"
 
 #include <libtock/crypto/isle.h>
+#include <libtock/peripherals/gpio.h>
 
 using namespace ot;
 
@@ -96,7 +97,15 @@ otError __otUdpCoapSecure(
 	const uint8_t* myAddr;
 	returncode_t tock_cmd_rval;
 
+	uint32_t inst_plaintext_setup_s;
+	uint32_t inst_plaintext_setup_e;
+	uint32_t inst_os_work_s;
+	uint32_t inst_os_work_e;
+	uint32_t inst_oscore_s;
+	uint32_t inst_oscore_e;
+
 	// printf("building oscore msg\n");
+	inst_plaintext_setup_s = libtock_unsafe_now();
 	// ===== Step 1: Form the OSCORE plaintext.
 	// The plaintext consists of:
 	// - the code
@@ -145,7 +154,7 @@ otError __otUdpCoapSecure(
 				otCoapOptionIteratorGetOptionValue(
 					&coapOptionIt,
 					(__isle_wbuf + wi));
-				printf("Got class E option: %d => %d\n", __isle_wbuf[wi-1], __isle_wbuf[wi]);
+				// printf("Got class E option: %d => %d\n", __isle_wbuf[wi-1], __isle_wbuf[wi]);
 				wi += presentOption->mLength;
 			} else {
 				// Save class U options for later.
@@ -162,8 +171,8 @@ otError __otUdpCoapSecure(
 			}
 		}
 	}
-	printf("Class U options size: %d\n", oi);
-	printf("Payload size after options: %d B\n", wi);
+	// printf("Class U options size: %d\n", oi);
+	// printf("Payload size after options: %d B\n", wi);
 
 	// The payload.
 	// Scan until we reach the payload marker.
@@ -176,9 +185,9 @@ otError __otUdpCoapSecure(
 			&rb,
 			1);
 	}
-	printf("CoAP payload at byte offset %d.\n", payload_offset);
-	printf("Total payload size: %d B.\n",
-		   otMessageGetLength(aMessage) - payload_offset);
+	// printf("CoAP payload at byte offset %d.\n", payload_offset);
+	// printf("Total payload size: %d B.\n",
+	// 	   otMessageGetLength(aMessage) - payload_offset);
 
 	otMessageRead(
 		aMessage,
@@ -187,7 +196,7 @@ otError __otUdpCoapSecure(
 		otMessageGetLength(aMessage) - payload_offset);
 	wi += (otMessageGetLength(aMessage) - payload_offset);
 	message_len = wi;
-	printf("set message_len to %d B \n", message_len);
+	// printf("set message_len to %d B \n", message_len);
 
 	// Add the AAD.
 	__isle_wbuf[wi++] = (4 << 5) | (4); // Array, 4 items.
@@ -228,6 +237,10 @@ otError __otUdpCoapSecure(
 	// Get the OS to process, encrypt this buffer.
 	// Based on ISLE grouping, the OS will accept or reject it.
 	// TODO: we can run a check earlier to save computation.
+	// libtock_gpio_toggle(0);
+	inst_plaintext_setup_e = libtock_unsafe_now();
+
+	inst_os_work_s = libtock_unsafe_now();
 	VerifyOrExit(
 		RETURNCODE_SUCCESS == libtock_isle_allow_ro_set_in_buffer(
 			__isle_wbuf,
@@ -241,6 +254,7 @@ otError __otUdpCoapSecure(
 
 	// Wait for the message to be ready.
 	// printf("awaiting encrypted message to come back\n");
+	libtock_gpio_toggle(0);
 	tock_cmd_rval = otIsleWaitForMessageReady(
 		message_len,
 		wi - message_len,
@@ -251,12 +265,14 @@ otError __otUdpCoapSecure(
 		libtock_isle_allow_rw_set_out_buffer(NULL, 0);
 		return OT_ERROR_FAILED;
 	}
+	inst_os_work_e = libtock_unsafe_now();
 
 	printf("Got %ld B message back from OS.\n",
 		   otIsleGetOutMessageLength());
 
 	// Build the final message.
 	// Initialize the message for CoAP.
+	inst_oscore_s = libtock_unsafe_now();
 	wi = 0;
 	// Version, Type, Token Length (4 bytes)
 	__isle_wbuf[wi++] = 0b10000001;
@@ -284,10 +300,16 @@ otError __otUdpCoapSecure(
 	for (uint8_t i = 0; i < otIsleGetOutMessageLength(); i++) {
 		__isle_wbuf[wi++] = __isle_obuf[i];
 	}
-	printf("final message size = %d\n", wi);
+	// printf("final message size = %d\n", wi);
 
 	otMessageFree(aMessage);
 	otMessageAppend(outMessage, __isle_wbuf, wi);
+	inst_oscore_e = libtock_unsafe_now();
+
+	printf("setup: %ld us\nos work: %ld us\nfinal oscore cons.: %ld us\n",
+		   (uint32_t) (((inst_plaintext_setup_e - inst_plaintext_setup_s)) / (float) 0.032768),
+		   (uint32_t) (((inst_os_work_e - inst_os_work_s)) / (float) 0.032768),
+		   (uint32_t) (((inst_oscore_e - inst_oscore_s)) / (float) 0.032768));
 
 exit:
 	return err;
@@ -310,9 +332,16 @@ otError otUdpSend(otInstance *aInstance, otUdpSocket *aSocket, otMessage *aMessa
 				aMessage,
 				outMessage)) == OT_ERROR_NONE);
 
-		printf("[otisle] transformation done; sending\n");
+		// printf("[otisle] transformation done; sending\n");
+		libtock_gpio_toggle(0);
+		const uint32_t inst_tx_s = libtock_unsafe_now();
 		error = AsCoreType(aInstance).Get<Ip6::Udp>().SendTo(AsCoreType(aSocket), AsCoreType(outMessage),
 															 AsCoreType(aMessageInfo));
+		const uint32_t inst_tx_e = libtock_unsafe_now();
+		ottock_latest_tx_done_at = inst_tx_e;
+
+		printf("tx: %ld us\n",
+			   (uint32_t) (((float) (inst_tx_e - inst_tx_s)) / (float) 0.032768));
 	} else {
 		error = AsCoreType(aInstance).Get<Ip6::Udp>().SendTo(AsCoreType(aSocket), AsCoreType(aMessage),
                                                          AsCoreType(aMessageInfo));
