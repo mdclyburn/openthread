@@ -8,7 +8,7 @@
 
 #include <libtock/tock.h>
 
-#define ISLE_WORK_BUFFER_LEN ((uint32_t) 64)
+#define ISLE_WORK_BUFFER_LEN ((uint32_t) 128)
 extern uint8_t __isle_wbuf[ISLE_WORK_BUFFER_LEN];
 extern uint8_t __isle_obuf[ISLE_WORK_BUFFER_LEN];
 extern uint8_t __isle_opts[ISLE_WORK_BUFFER_LEN];

@@ -106,6 +106,8 @@ otError __otUdpCoapSecure(
 
 	// printf("building oscore msg\n");
 	inst_plaintext_setup_s = libtock_unsafe_now();
+	// libtock_gpio_toggle(0);
+	*((volatile uint32_t*) (0x50000300 + 0x0504)) ^= (1 << 1);
 	// ===== Step 1: Form the OSCORE plaintext.
 	// The plaintext consists of:
 	// - the code
@@ -231,6 +233,8 @@ otError __otUdpCoapSecure(
 	__isle_wbuf[wi++] = 0xFE;
 	__isle_wbuf[wi++] = 0xFE;
 	__isle_wbuf[wi++] = 0xFE;
+	// libtock_gpio_toggle(0);
+	*((volatile uint32_t*) (0x50000300 + 0x0504)) ^= (1 << 1);
 
 	// printf("message + aad = %d + %d = %d\n", message_len, wi - message_len, wi);
 
@@ -254,7 +258,7 @@ otError __otUdpCoapSecure(
 
 	// Wait for the message to be ready.
 	// printf("awaiting encrypted message to come back\n");
-	libtock_gpio_toggle(0);
+	// libtock_gpio_toggle(0);
 	tock_cmd_rval = otIsleWaitForMessageReady(
 		message_len,
 		wi - message_len,
@@ -272,6 +276,7 @@ otError __otUdpCoapSecure(
 
 	// Build the final message.
 	// Initialize the message for CoAP.
+	// libtock_gpio_toggle(0);
 	inst_oscore_s = libtock_unsafe_now();
 	wi = 0;
 	// Version, Type, Token Length (4 bytes)
@@ -301,6 +306,7 @@ otError __otUdpCoapSecure(
 		__isle_wbuf[wi++] = __isle_obuf[i];
 	}
 	// printf("final message size = %d\n", wi);
+	// libtock_gpio_toggle(0);
 
 	otMessageFree(aMessage);
 	otMessageAppend(outMessage, __isle_wbuf, wi);
@@ -333,16 +339,18 @@ otError otUdpSend(otInstance *aInstance, otUdpSocket *aSocket, otMessage *aMessa
 				outMessage)) == OT_ERROR_NONE);
 
 		// printf("[otisle] transformation done; sending\n");
-		libtock_gpio_toggle(0);
+		// libtock_gpio_toggle(0);
 		const uint32_t inst_tx_s = libtock_unsafe_now();
+		ottock_latest_tx_done_at = inst_tx_s;
 		error = AsCoreType(aInstance).Get<Ip6::Udp>().SendTo(AsCoreType(aSocket), AsCoreType(outMessage),
 															 AsCoreType(aMessageInfo));
-		const uint32_t inst_tx_e = libtock_unsafe_now();
-		ottock_latest_tx_done_at = inst_tx_e;
+		// const uint32_t inst_tx_e = libtock_unsafe_now();
 
-		printf("tx: %ld us\n",
-			   (uint32_t) (((float) (inst_tx_e - inst_tx_s)) / (float) 0.032768));
+		// printf("tx: %ld us\n",
+		// 	   (uint32_t) (((float) (inst_tx_e - inst_tx_s)) / (float) 0.032768));
 	} else {
+		const uint32_t inst_tx_s = libtock_unsafe_now();
+		ottock_latest_tx_done_at = inst_tx_s;
 		error = AsCoreType(aInstance).Get<Ip6::Udp>().SendTo(AsCoreType(aSocket), AsCoreType(aMessage),
                                                          AsCoreType(aMessageInfo));
 	}
