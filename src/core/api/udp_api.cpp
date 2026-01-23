@@ -341,7 +341,7 @@ otError otUdpSend(otInstance *aInstance, otUdpSocket *aSocket, otMessage *aMessa
 		// printf("[otisle] transformation done; sending\n");
 		// libtock_gpio_toggle(0);
 		const uint32_t inst_tx_s = libtock_unsafe_now();
-		ottock_latest_tx_done_at = inst_tx_s;
+		// ottock_latest_tx_done_at = inst_tx_s;
 		error = AsCoreType(aInstance).Get<Ip6::Udp>().SendTo(AsCoreType(aSocket), AsCoreType(outMessage),
 															 AsCoreType(aMessageInfo));
 		// const uint32_t inst_tx_e = libtock_unsafe_now();
@@ -350,7 +350,7 @@ otError otUdpSend(otInstance *aInstance, otUdpSocket *aSocket, otMessage *aMessa
 		// 	   (uint32_t) (((float) (inst_tx_e - inst_tx_s)) / (float) 0.032768));
 	} else {
 		const uint32_t inst_tx_s = libtock_unsafe_now();
-		ottock_latest_tx_done_at = inst_tx_s;
+		// ottock_latest_tx_done_at = inst_tx_s;
 		error = AsCoreType(aInstance).Get<Ip6::Udp>().SendTo(AsCoreType(aSocket), AsCoreType(aMessage),
                                                          AsCoreType(aMessageInfo));
 	}

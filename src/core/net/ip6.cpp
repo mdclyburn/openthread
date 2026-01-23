@@ -53,6 +53,8 @@
 #include "openthread/ip6.h"
 #include "thread/mle.hpp"
 
+#include <libtock/tock.h>
+
 using IcmpType = ot::Ip6::Icmp::Header::Type;
 
 static const IcmpType kForwardIcmpTypes[] = {
@@ -1099,12 +1101,20 @@ Error Ip6::HandleDatagram(OwnedPtr<Message> aMessagePtr, bool aIsReassembled)
     bool        forwardThread;
     bool        forwardHost;
     uint8_t     nextHeader;
+	uint32_t    dropAt;
 
     receive       = false;
     forwardThread = false;
     forwardHost   = false;
 
     SuccessOrExit(error = header.ParseFrom(*aMessagePtr));
+
+	// Ensure the sender is in the Isle group.
+	// If the sender is not, silently drop the packet.
+	dropAt = libtock_unsafe_now();
+	printf("Isle dropped packet at %ld\n",
+		   dropAt);
+	ottock_latest_tx_done_at = dropAt;
 
     messageInfo.Clear();
     messageInfo.SetPeerAddr(header.GetSource());
