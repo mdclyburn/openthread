@@ -143,10 +143,6 @@ public:
 
         void HandleUdpReceive(Message &aMessage, const MessageInfo &aMessageInfo)
         {
-			otIslePrepareReceivedMessage(
-				aMessage,
-				aMessageInfo);
-
             mHandler(mContext, &aMessage, &aMessageInfo);
         }
     };

@@ -330,7 +330,7 @@ otError otUdpSend(otInstance *aInstance, otUdpSocket *aSocket, otMessage *aMessa
 
 	// Translate the CoAP message into a Group OSCORE message.
 	// Quick test to make sure this is a CoAP message.
-    if (aMessageInfo->mPeerPort == 5683) {
+    if (false && aMessageInfo->mPeerPort == 5683) {
 		otMessage* const outMessage = otUdpNewMessage(aInstance, NULL);
 		VerifyOrExit(
 			(error = __otUdpCoapSecure(
