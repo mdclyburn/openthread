@@ -1112,8 +1112,8 @@ Error Ip6::HandleDatagram(OwnedPtr<Message> aMessagePtr, bool aIsReassembled)
 	// Ensure the sender is in the Isle group.
 	// If the sender is not, silently drop the packet.
 	dropAt = libtock_unsafe_now();
-	printf("Isle dropped packet at %ld\n",
-		   dropAt);
+	// printf("Isle dropped packet at %ld\n",
+	// 	   dropAt);
 	ottock_latest_tx_done_at = dropAt;
 
     messageInfo.Clear();

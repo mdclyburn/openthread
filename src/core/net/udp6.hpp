@@ -48,7 +48,9 @@
 #include "instance/isle.hpp"
 #include "net/ip6_headers.hpp"
 
+#include <libtock/tock.h>
 #include <libtock/crypto/isle.h>
+#include <libtock/peripherals/gpio.h>
 
 namespace ot {
 namespace Ip6 {
@@ -143,6 +145,9 @@ public:
 
         void HandleUdpReceive(Message &aMessage, const MessageInfo &aMessageInfo)
         {
+			// const uint32_t now = libtock_unsafe_now();
+			// printf("net stack rx duration: %ld ticks", now);
+			libtock_gpio_toggle(0);
             mHandler(mContext, &aMessage, &aMessageInfo);
         }
     };
