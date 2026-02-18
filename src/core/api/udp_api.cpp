@@ -79,6 +79,7 @@ otError otUdpConnect(otInstance *aInstance, otUdpSocket *aSocket, const otSockAd
 
 otError __otUdpCoapSecure(
 	otInstance *aInstance,
+	const otMessageInfo* const aMessageInfo,
 	otMessage *aMessage,
 	otMessage *outMessage)
 {
@@ -162,8 +163,8 @@ otError __otUdpCoapSecure(
 			}
 		}
 	}
-	printf("Class U options size: %d\n", oi);
-	printf("Payload size after options: %d B\n", wi);
+	// printf("Class U options size: %d\n", oi);
+	// printf("Payload size after options: %d B\n", wi);
 
 	// The payload.
 	// Scan until we reach the payload marker.
@@ -176,9 +177,9 @@ otError __otUdpCoapSecure(
 			&rb,
 			1);
 	}
-	printf("CoAP payload at byte offset %d.\n", payload_offset);
-	printf("Total payload size: %d B.\n",
-		   otMessageGetLength(aMessage) - payload_offset);
+	// printf("CoAP payload at byte offset %d.\n", payload_offset);
+	// printf("Total payload size: %d B.\n",
+		   // otMessageGetLength(aMessage) - payload_offset);
 
 	otMessageRead(
 		aMessage,
@@ -187,7 +188,7 @@ otError __otUdpCoapSecure(
 		otMessageGetLength(aMessage) - payload_offset);
 	wi += (otMessageGetLength(aMessage) - payload_offset);
 	message_len = wi;
-	printf("set message_len to %d B \n", message_len);
+	// printf("set message_len to %d B \n", message_len);
 
 	// Add the AAD.
 	__isle_wbuf[wi++] = (4 << 5) | (4); // Array, 4 items.
@@ -231,13 +232,18 @@ otError __otUdpCoapSecure(
 	VerifyOrExit(
 		RETURNCODE_SUCCESS == libtock_isle_allow_ro_set_in_buffer(
 			__isle_wbuf,
-			ISLE_WORK_BUFFER_LEN),
+		    wi),
 		err = OT_ERROR_FAILED);
 	VerifyOrExit(
 		RETURNCODE_SUCCESS == libtock_isle_allow_rw_set_out_buffer(
 			__isle_obuf,
-			ISLE_WORK_BUFFER_LEN),
+			// Provide the full length of the buffer even though the message may be smaller.
+			// Encryption may require padding and increase the size of the output.
+			// The capsule will inform the network stack of the final size.
+		    ISLE_WORK_BUFFER_LEN),
 		err = OT_ERROR_FAILED);
+			libtock_isle_subscribe_out_message_ready(
+				__otIsleFinishUdpSend);
 
 	// Wait for the message to be ready.
 	// printf("awaiting encrypted message to come back\n");
@@ -252,8 +258,8 @@ otError __otUdpCoapSecure(
 		return OT_ERROR_FAILED;
 	}
 
-	printf("Got %ld B message back from OS.\n",
-		   otIsleGetOutMessageLength());
+	// printf("Got %ld B message back from OS.\n",
+		   // otIsleGetOutMessageLength());
 
 	// Build the final message.
 	// Initialize the message for CoAP.
@@ -284,7 +290,11 @@ otError __otUdpCoapSecure(
 	for (uint8_t i = 0; i < otIsleGetOutMessageLength(); i++) {
 		__isle_wbuf[wi++] = __isle_obuf[i];
 	}
-	printf("final message size = %d\n", wi);
+	// printf("final message size = %d\n", wi);
+	printf("out message:");
+	for (uint8_t i = 0; i < 8; i++)
+		printf("%x ", __isle_obuf[i]);
+	printf("\n");
 
 	otMessageFree(aMessage);
 	otMessageAppend(outMessage, __isle_wbuf, wi);
@@ -307,10 +317,11 @@ otError otUdpSend(otInstance *aInstance, otUdpSocket *aSocket, otMessage *aMessa
 		VerifyOrExit(
 			(error = __otUdpCoapSecure(
 				aInstance,
+				aMessageInfo,
 				aMessage,
 				outMessage)) == OT_ERROR_NONE);
 
-		printf("[otisle] transformation done; sending\n");
+		// printf("[otisle] transformation done; sending\n");
 		error = AsCoreType(aInstance).Get<Ip6::Udp>().SendTo(AsCoreType(aSocket), AsCoreType(outMessage),
 															 AsCoreType(aMessageInfo));
 	} else {

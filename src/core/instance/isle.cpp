@@ -4,6 +4,8 @@
 #include "isle.hpp"
 
 uint8_t __isle_wbuf[ISLE_WORK_BUFFER_LEN];
+uint8_t __isle_piv_buf[ISLE_PIV_BUFFER_LEN];
+uint8_t __isle_host_buf[ISLE_SRC_BUFFER_LEN];
 uint8_t __isle_obuf[ISLE_WORK_BUFFER_LEN];
 uint8_t __isle_opts[ISLE_WORK_BUFFER_LEN];
 
@@ -27,11 +29,13 @@ otIsleWaitForMessageReady(
     returncode_t tock_cmd_rval;
 	if (is_encrypt)
 	{
-		tock_cmd_rval = libtock_isle_command_encrypt(messageLength, aadLength);
+		// TODO: fill in with address.
+		tock_cmd_rval = libtock_isle_command_encrypt(0);
 	}
 	else
 	{
-		tock_cmd_rval = libtock_isle_command_decrypt(messageLength, aadLength);
+		// TODO: fill in with address.
+		tock_cmd_rval = libtock_isle_command_decrypt(0);
 	}
 
 	if (tock_cmd_rval != RETURNCODE_SUCCESS) {
@@ -88,13 +92,13 @@ otIsleBuildAad(
 		   && payload_offset < message.GetLength())
 		payload_offset++;
 
-	printf("[otisle] payload is at %d bytes\n", payload_offset);
+	// printf("[otisle] payload is at %d bytes\n", payload_offset);
 
 	const uint16_t message_len = message.ReadBytes(
 		payload_offset,
 		__isle_wbuf,
 		message.GetLength() - payload_offset);
-	printf("[otisle] message is %d bytes\n", message_len);
+	// printf("[otisle] message is %d bytes\n", message_len);
 
 	// Build the AAD
 	uint16_t wi = message_len;
@@ -140,15 +144,15 @@ otIsleBuildAad(
 		wi - message_len,
 		false);
 	if (tock_cmd_rval != RETURNCODE_SUCCESS) {
-		printf("ISLE driver failed to process message.\n");
+		// printf("ISLE driver failed to process message.\n");
 	    libtock_isle_allow_ro_set_in_buffer(NULL, 0);
 		libtock_isle_allow_rw_set_out_buffer(NULL, 0);
 
 		return;
 	}
 
-	printf("Got %ld B message back from OS.\n",
-		   otIsleGetOutMessageLength());
+	// printf("Got %ld B message back from OS.\n",
+		   // otIsleGetOutMessageLength());
 
 	// Take the buffers back.
     libtock_isle_allow_ro_set_in_buffer(
@@ -176,7 +180,7 @@ otIslePrepareReceivedMessage(
 	// 	   inMessageInfo.GetSockPort());
 	if (inMessageInfo.GetSockPort() == 5683)
 	{
-		printf("[otisle] processing received %d B message\n", inMessage.GetLength());
+		// printf("[otisle] processing received %d B message\n", inMessage.GetLength());
 		otIsleBuildAad(inMessage, inMessageInfo);
 	}
 
