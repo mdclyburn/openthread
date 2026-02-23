@@ -20,6 +20,7 @@ static int32_t __isle_cb_result;
 /// Create a synchronous, non-system-blocking wait for a message to be ready for transmission.
 returncode_t
 otIsleWaitForMessageReady(
+	const uint64_t iid,
 	const uint32_t messageLength,
 	const uint32_t aadLength,
 	const bool is_encrypt)
@@ -30,12 +31,12 @@ otIsleWaitForMessageReady(
 	if (is_encrypt)
 	{
 		// TODO: fill in with address.
-		tock_cmd_rval = libtock_isle_command_encrypt(0);
+		tock_cmd_rval = libtock_isle_command_encrypt(iid);
 	}
 	else
 	{
 		// TODO: fill in with address.
-		tock_cmd_rval = libtock_isle_command_decrypt(0);
+		tock_cmd_rval = libtock_isle_command_decrypt(iid);
 	}
 
 	if (tock_cmd_rval != RETURNCODE_SUCCESS) {
@@ -140,6 +141,7 @@ otIsleBuildAad(
 	// Ask ISLE to decrypt this for us.
 	// Wait for the message to be ready.
 	returncode_t tock_cmd_rval = otIsleWaitForMessageReady(
+		*((uint64_t*) messageInfo.mPeerAddr.mFields.m8),
 		message_len,
 		wi - message_len,
 		false);

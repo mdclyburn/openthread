@@ -242,12 +242,17 @@ otError __otUdpCoapSecure(
 			// The capsule will inform the network stack of the final size.
 		    ISLE_WORK_BUFFER_LEN),
 		err = OT_ERROR_FAILED);
-			libtock_isle_subscribe_out_message_ready(
-				__otIsleFinishUdpSend);
+	libtock_isle_subscribe_out_message_ready(
+		__otIsleFinishUdpSend);
 
 	// Wait for the message to be ready.
 	// printf("awaiting encrypted message to come back\n");
+	// for (uint8_t i = 0; i < 8; i++) {
+	// 	printf("byte: %x\n", (aMessageInfo->mPeerAddr.mFields.m8 + 8)[i]);
+	// }
 	tock_cmd_rval = otIsleWaitForMessageReady(
+		// Note: the network address is stored big-endian.
+		*((uint64_t*) (aMessageInfo->mPeerAddr.mFields.m8 + 8)),
 		message_len,
 		wi - message_len,
 		true);

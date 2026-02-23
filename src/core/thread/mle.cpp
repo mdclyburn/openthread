@@ -137,6 +137,14 @@ Mle::Mle(Instance &aInstance)
 	uint8_t realm_iid[8];
 	int rc;
 	rc = libtock_isle_command_realm_id(0, ((uint16_t*) realm_iid));
+	// The above interprets the part of the address as a u16,
+	// which will be affected by platform endianness.
+	// On ARM, little-endianness is the default,
+	// while the IID is stored/viewed as a big-endian array of bytes,
+	// so we need to swap the bytes around.
+	realm_iid[2] = realm_iid[0];
+	realm_iid[0] = realm_iid[1];
+	realm_iid[1] = realm_iid[2];
 	if (rc == RETURNCODE_SUCCESS) {
 		libtock_isle_command_host_network_no(0, (uint64_t*) (realm_iid + 2));
 		printf("Realm IID: ");
