@@ -46,6 +46,8 @@
 #include "net/ip4_types.hpp"
 #include "net/netif.hpp"
 
+#include <libtock/crypto/isle.h>
+
 namespace ot {
 namespace Ip6 {
 
@@ -254,7 +256,10 @@ bool InterfaceIdentifier::IsReservedSubnetAnycast(void) const
             mFields.m8[6] == 0xff && mFields.m8[7] >= 0x80);
 }
 
-void InterfaceIdentifier::GenerateRandom(void) { SuccessOrAssert(Random::Crypto::Fill(*this)); }
+void InterfaceIdentifier::GenerateRandom(void)
+{
+	SuccessOrAssert(Random::Crypto::Fill(*this));
+}
 
 void InterfaceIdentifier::SetBytes(const uint8_t *aBuffer) { memcpy(mFields.m8, aBuffer, kSize); }
 

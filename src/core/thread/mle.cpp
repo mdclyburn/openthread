@@ -63,6 +63,8 @@
 #include "thread/time_sync_service.hpp"
 #include "thread/version.hpp"
 
+#include <libtock/crypto/isle.h>
+
 namespace ot {
 namespace Mle {
 
@@ -131,6 +133,19 @@ Mle::Mle(Instance &aInstance)
 
     mMeshLocal64.InitAsThreadOriginMeshLocal();
     mMeshLocal64.GetAddress().GetIid().GenerateRandom();
+	// TODO: assign as many addresses as there are realms.
+	uint8_t realm_iid[8];
+	int rc;
+	rc = libtock_isle_command_realm_id(0, ((uint16_t*) realm_iid));
+	if (rc == RETURNCODE_SUCCESS) {
+		libtock_isle_command_host_network_no(0, (uint64_t*) (realm_iid + 2));
+		printf("Realm IID: ");
+		for (uint8_t i = 0; i < 8; i++)
+			printf("%x ", realm_iid[i]);
+		printf("\n");
+
+		mMeshLocal64.GetAddress().GetIid().SetBytes(realm_iid);
+	}
 
     mMeshLocal16.InitAsThreadOriginMeshLocal();
     mMeshLocal16.GetAddress().GetIid().SetToLocator(0);
@@ -354,23 +369,7 @@ void Mle::SetRole(DeviceRole aRole)
 
 		if (!mInitiallyAttachedAsSleepy)
 		{
-			// Notify Tock of the unicast address of the node.
-			const uint8_t mleidPrefix[] = { 0xfd };
-			for (const Ip6::Netif::UnicastAddress* currUnicastAddress =
-					 Instance::Get()
-					 .Get<ot::ThreadNetif>()
-					 .GetUnicastAddresses()
-					 .GetHead();
-				 currUnicastAddress != nullptr;
-				 currUnicastAddress = currUnicastAddress->GetNext())
-			{
-				if (currUnicastAddress->GetAddress().MatchesPrefix(mleidPrefix, 1))
-				{
-					libtock_isle_command_set_address(currUnicastAddress->GetAddress().GetBytes());
-				}
-			}
-
-			// Register callback for completing message transmission.
+		    // Register callback for completing message transmission.
 			libtock_isle_subscribe_out_message_ready(
 				__otIsleFinishUdpSend);
 		}
