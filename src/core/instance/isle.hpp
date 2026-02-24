@@ -24,7 +24,6 @@ returncode_t
 otIsleWaitForMessageReady(
 	const uint64_t iid,
 	const uint32_t messageLength,
-	const uint32_t aadLength,
 	const bool is_encrypt);
 
 uint32_t

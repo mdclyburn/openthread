@@ -22,7 +22,6 @@ returncode_t
 otIsleWaitForMessageReady(
 	const uint64_t iid,
 	const uint32_t messageLength,
-	const uint32_t aadLength,
 	const bool is_encrypt)
 {
 	__isle_out_message_ready = false;
@@ -104,34 +103,27 @@ otIsleBuildAad(
 		payload_offset,
 		__isle_wbuf,
 		message.GetLength() - payload_offset);
-	// printf("[otisle] message is %d bytes\n", message_len);
+	printf("[otisle] in message is %d bytes\n", message_len);
+	printf("in message: ");
+	for (uint8_t i = 0; i < message_len; i++)
+		printf("%x ", __isle_wbuf[i]);
+	printf("\n");
 
-	// Build the AAD
-	uint16_t wi = message_len;
-	__isle_wbuf[wi++] = (4 << 5) | (4); // Array, 4 items.
-
-	// Item 1, OSCORE version.
-	__isle_wbuf[wi++] = (0b00000000) | 1; // OSCORE version => integer, 1.
-	// Item 2, Algorithms.
-	__isle_wbuf[wi++] = (0b01000000) | 4; // Algorithms => array, 4 items.
-	__isle_wbuf[wi++] = (0b00000000) | 10; // AEAD alg.: AES-CCM-16-64-128 => integer, 10.
-	__isle_wbuf[wi++] = (0b00000000) | 10; // Group enc. algo.: AES-CCM-16-64-128 => integer, 10.
-	__isle_wbuf[wi++] = (0b00111001); // Sig. Algo.: EdDSA => -8 -> 2-byte unsigned integer extension, 7
-	__isle_wbuf[wi++] = 0;
-	__isle_wbuf[wi++] = 7;
-	__isle_wbuf[wi++] = (0b00111001); // Pairwise key agreement: ECDH-SS + HKDF-256 => -27 -> 2-byte unsigned integer extension, 26
-	__isle_wbuf[wi++] = 0;
-	__isle_wbuf[wi++] = 26;
-	// Item 3, kid (key ID)/sender ID.
-	// Use the lower 8 bytes of the address.
+	// Place the peer address in the source IID buffer.
+	printf("[otisle] peer IID: ");
 	const uint8_t* peer_addr = messageInfo.GetPeerAddr().GetBytes();
-	for (uint8_t i = 0; i < 8; i++) { __isle_wbuf[wi++] = peer_addr[8+i]; }
-	// Item 4, Partial IV.
-	// This is in the received message.
+	for (uint8_t i = 0; i < 8; i++)
+	{
+		printf("%x ", peer_addr[8+i]);
+		__isle_host_buf[i] = peer_addr[8+i];
+	}
+	printf("\n");
+
+	// Place the partial IV in the pIV buffer.
 	message.ReadBytes(
 		// Skip the payload marker and go backward to the pIV.
 		payload_offset - 1 - 4,
-		__isle_wbuf + wi,
+		__isle_piv_buf,
 		4);
 
 	// Give the OS the buffers.
@@ -152,7 +144,6 @@ otIsleBuildAad(
 	returncode_t tock_cmd_rval = otIsleWaitForMessageReady(
 		*((uint64_t*) messageInfo.mPeerAddr.mFields.m8),
 		message_len,
-		wi - message_len,
 		false);
 	if (tock_cmd_rval != RETURNCODE_SUCCESS) {
 		// printf("ISLE driver failed to process message.\n");

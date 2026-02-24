@@ -92,6 +92,7 @@ otError __otUdpCoapSecure(
 	uint8_t rb;
 	uint8_t token_len;
 	uint16_t message_len;
+	uint16_t out_message_len;
 	// Options buffer offset index.
 	uint16_t oi;
 	const uint8_t* myAddr;
@@ -218,7 +219,6 @@ otError __otUdpCoapSecure(
 		// Note: the network address is stored big-endian.
 		*((uint64_t*) (aMessageInfo->mPeerAddr.mFields.m8 + 8)),
 		message_len,
-		wi - message_len,
 		true);
 	if (tock_cmd_rval != RETURNCODE_SUCCESS) {
 		printf("ISLE driver failed to process message (%d).\n", tock_cmd_rval);
@@ -256,12 +256,13 @@ otError __otUdpCoapSecure(
 	__isle_wbuf[wi++] = 0xFF;
 
 	// Payload.
-	for (uint8_t i = 0; i < otIsleGetOutMessageLength(); i++) {
+	out_message_len = otIsleGetOutMessageLength();
+	for (uint8_t i = 0; i < out_message_len; i++) {
 		__isle_wbuf[wi++] = __isle_obuf[i];
 	}
-	// printf("final message size = %d\n", wi);
-	printf("out message:");
-	for (uint8_t i = 0; i < 8; i++)
+	printf("final message size = %d\n", out_message_len);
+	printf("out message: ");
+	for (uint8_t i = 0; i < out_message_len; i++)
 		printf("%x ", __isle_obuf[i]);
 	printf("\n");
 
