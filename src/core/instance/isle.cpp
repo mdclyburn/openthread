@@ -134,9 +134,13 @@ otIsleBuildAad(
     libtock_isle_allow_ro_set_in_buffer(
 		__isle_wbuf,
 		ISLE_WORK_BUFFER_LEN);
+	libtock_isle_allow_ro_set_piv_buffer(
+		__isle_piv_buf);
+	libtock_isle_allow_ro_set_srchost_buffer(
+		__isle_host_buf);
     libtock_isle_allow_rw_set_out_buffer(
-			__isle_obuf,
-			ISLE_WORK_BUFFER_LEN);
+		__isle_obuf,
+		ISLE_WORK_BUFFER_LEN);
 
 	// Ask ISLE to decrypt this for us.
 	// Wait for the message to be ready.
@@ -182,7 +186,7 @@ otIslePrepareReceivedMessage(
 	// 	   inMessageInfo.GetSockPort());
 	if (inMessageInfo.GetSockPort() == 5683)
 	{
-		// printf("[otisle] processing received %d B message\n", inMessage.GetLength());
+		printf("[otisle] processing received %d B message\n", inMessage.GetLength());
 		otIsleBuildAad(inMessage, inMessageInfo);
 	}
 
