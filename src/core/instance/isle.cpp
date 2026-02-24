@@ -92,8 +92,13 @@ otIsleBuildAad(
 			   1)
 		   && payload_offset < message.GetLength())
 		payload_offset++;
+	// ASSUME: there is a payload to retrieve?
+	// Even if the sending application does not include a payload,
+	// OSCORE may be moving headers into the encrypted payload anyway,
+	// so we may always have a payload to decrypt.
+	payload_offset++; // One more increment to skip the payload marker.
 
-	// printf("[otisle] payload is at %d bytes\n", payload_offset);
+	printf("[otisle] payload is at %d bytes\n", payload_offset);
 
 	const uint16_t message_len = message.ReadBytes(
 		payload_offset,
@@ -124,7 +129,7 @@ otIsleBuildAad(
 	// Item 4, Partial IV.
 	// This is in the received message.
 	message.ReadBytes(
-		// Skip the payload marker and back over the pIV.
+		// Skip the payload marker and go backward to the pIV.
 		payload_offset - 1 - 4,
 		__isle_wbuf + wi,
 		4);
