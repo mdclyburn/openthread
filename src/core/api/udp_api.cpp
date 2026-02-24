@@ -190,42 +190,6 @@ otError __otUdpCoapSecure(
 	message_len = wi;
 	// printf("set message_len to %d B \n", message_len);
 
-	// Add the AAD.
-	__isle_wbuf[wi++] = (4 << 5) | (4); // Array, 4 items.
-
-	// Item 1, OSCORE version.
-	__isle_wbuf[wi++] = (0b00000000) | 1; // OSCORE version => integer, 1.
-	// Item 2, Algorithms.
-	__isle_wbuf[wi++] = (0b01000000) | 4; // Algorithms => array, 4 items.
-	__isle_wbuf[wi++] = (0b00000000) | 10; // AEAD alg.: AES-CCM-16-64-128 => integer, 10.
-	__isle_wbuf[wi++] = (0b00000000) | 10; // Group enc. algo.: AES-CCM-16-64-128 => integer, 10.
-	__isle_wbuf[wi++] = (0b00111001); // Sig. Algo.: EdDSA => -8 -> 2-byte unsigned integer extension, 7
-	__isle_wbuf[wi++] = 0;
-	__isle_wbuf[wi++] = 7;
-	__isle_wbuf[wi++] = (0b00111001); // Pairwise key agreement: ECDH-SS + HKDF-256 => -27 -> 2-byte unsigned integer extension, 26
-	__isle_wbuf[wi++] = 0;
-	__isle_wbuf[wi++] = 26;
-	// Item 3, kid (key ID)/sender ID.
-    myAddr = otIp6GetUnicastAddresses(aInstance) // HACK; just use the first one.
-		->mAddress    // Get the address...
-		.mFields      // as divided fields...
-		.mComponents  // where the fields are the network prefix and the interface ID (IID)...
-		.mIid         // and we want the IID...
-		.mFields      // as divided fields...
-		.m8;          // where the fields are 8-bit values.
-	// The choice of the sender ID is user-defined.
-	// We use the lower 7 bits as the sender ID.
-	// The length is constrained to the nonce length - 6 (13 - 6 = 7).
-	for (uint8_t i = 1; i < 8; i++) { __isle_wbuf[wi++] = myAddr[i]; }
-	// Item 4, Partial IV (uses the sender sequence no.).
-	// The OS will handle this field.
-	__isle_wbuf[wi++] = 0xFE;
-	__isle_wbuf[wi++] = 0xFE;
-	__isle_wbuf[wi++] = 0xFE;
-	__isle_wbuf[wi++] = 0xFE;
-
-	// printf("message + aad = %d + %d = %d\n", message_len, wi - message_len, wi);
-
 	// Get the OS to process, encrypt this buffer.
 	// Based on ISLE grouping, the OS will accept or reject it.
 	// TODO: we can run a check earlier to save computation.
@@ -257,7 +221,7 @@ otError __otUdpCoapSecure(
 		wi - message_len,
 		true);
 	if (tock_cmd_rval != RETURNCODE_SUCCESS) {
-		printf("ISLE driver failed to process message.\n");
+		printf("ISLE driver failed to process message (%d).\n", tock_cmd_rval);
 	    libtock_isle_allow_ro_set_in_buffer(NULL, 0);
 		libtock_isle_allow_rw_set_out_buffer(NULL, 0);
 		return OT_ERROR_FAILED;
