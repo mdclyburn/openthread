@@ -103,10 +103,9 @@ otIsleBuildAad(
 			   1)
 		   && payload_offset < message.GetLength())
 		payload_offset++;
-	// ASSUME: there is a payload to retrieve?
-	// Even if the sending application does not include a payload,
-	// OSCORE may be moving headers into the encrypted payload anyway,
-	// so we may always have a payload to decrypt.
+	// The payload marker is guaranteed to exist if the message is not a malformed OSCORE message.
+	// According to section 2 of the draft standard,
+	// a "...message without [a] payload that also contains an OSCORE option SHALL treat it as malformed..."
 	payload_offset++; // One more increment to skip the payload marker.
 
 	printf("[otisle] payload is at %d bytes\n", payload_offset);

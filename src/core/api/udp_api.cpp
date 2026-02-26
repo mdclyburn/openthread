@@ -247,15 +247,23 @@ otError __otUdpCoapSecure(
 	__isle_wbuf[wi++] = 0b00101011;
 	__isle_wbuf[wi++] = 0b00101011;
 
-	// NEXT: put the partial IV into the payload so the receiver can have it.
-	*((uint32_t*) (__isle_wbuf + wi)) = *((uint32_t*) (__isle_piv_buf));
-	wi += sizeof(uint32_t);
-
 	// Class U options.
 	for (uint8_t i = 0; i < oi; i++) {
 		__isle_wbuf[wi + i] = __isle_opts[i];
 	}
 	wi += oi;
+
+	// OSCORE flags.
+	__isle_wbuf[wi++] =
+		0b00000010   // bits 0-2: 4-byte pIV.
+		| 0b00000000 // bit    3: kid present?
+		| 0b00000000 // bit    4: kid context present?
+		| 0b00000000 // bits 5-7: reserved
+		;
+
+	// Put the partial IV into the payload so the receiver can have it.
+	*((uint32_t*) (__isle_wbuf + wi)) = *((uint32_t*) (__isle_piv_buf));
+	wi += sizeof(uint32_t);
 
 	// Payload marker.
 	__isle_wbuf[wi++] = 0xFF;
