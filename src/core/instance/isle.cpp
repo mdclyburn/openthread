@@ -141,7 +141,7 @@ otIsleBuildAad(
 	// If this fails, well...
     libtock_isle_allow_ro_set_in_buffer(
 		__isle_wbuf,
-		ISLE_WORK_BUFFER_LEN);
+	    message_len);
 	libtock_isle_allow_rw_set_piv_buffer(
 		__isle_piv_buf);
 	libtock_isle_allow_ro_set_srchost_buffer(
