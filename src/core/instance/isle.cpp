@@ -82,6 +82,18 @@ otIsleBuildAad(
 	ot::Message& message,
 	const ot::Ip6::MessageInfo& messageInfo)
 {
+	const uint16_t read_bytes = message.ReadBytes(
+		0,
+		__isle_wbuf,
+		message.GetLength());
+	printf("got %d raw bytes:\n", read_bytes);
+	for (uint16_t i = 0; i < read_bytes; i++)
+	{
+		printf("%x ", __isle_wbuf[i]);
+		if ((i + 1) % 8 == 0)
+			printf("\n");
+	}
+
 	// We need to extract just the payload and not any of the header information.
 	uint16_t payload_offset = 0;
 	const uint8_t payload_marker = 0xFF;
@@ -131,7 +143,7 @@ otIsleBuildAad(
     libtock_isle_allow_ro_set_in_buffer(
 		__isle_wbuf,
 		ISLE_WORK_BUFFER_LEN);
-	libtock_isle_allow_ro_set_piv_buffer(
+	libtock_isle_allow_rw_set_piv_buffer(
 		__isle_piv_buf);
 	libtock_isle_allow_ro_set_srchost_buffer(
 		__isle_host_buf);

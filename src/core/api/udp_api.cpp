@@ -207,6 +207,7 @@ otError __otUdpCoapSecure(
 			// The capsule will inform the network stack of the final size.
 		    ISLE_WORK_BUFFER_LEN),
 		err = OT_ERROR_FAILED);
+	libtock_isle_allow_rw_set_piv_buffer(__isle_piv_buf);
 	libtock_isle_subscribe_out_message_ready(
 		__otIsleFinishUdpSend);
 
@@ -245,6 +246,10 @@ otError __otUdpCoapSecure(
 	__isle_wbuf[wi++] = 0b00101011;
 	__isle_wbuf[wi++] = 0b00101011;
 	__isle_wbuf[wi++] = 0b00101011;
+
+	// NEXT: put the partial IV into the payload so the receiver can have it.
+	*((uint32_t*) (__isle_wbuf + wi)) = *((uint32_t*) (__isle_piv_buf));
+	wi += sizeof(uint32_t);
 
 	// Class U options.
 	for (uint8_t i = 0; i < oi; i++) {
