@@ -273,11 +273,11 @@ otError __otUdpCoapSecure(
 	for (uint8_t i = 0; i < out_message_len; i++) {
 		__isle_wbuf[wi++] = __isle_obuf[i];
 	}
-	printf("final message size = %d\n", out_message_len);
-	printf("out message: ");
-	for (uint8_t i = 0; i < out_message_len; i++)
-		printf("%x ", __isle_obuf[i]);
-	printf("\n");
+	// printf("final message size = %d\n", out_message_len);
+	// printf("out message: ");
+	// for (uint8_t i = 0; i < out_message_len; i++)
+	// 	printf("%x ", __isle_obuf[i]);
+	// printf("\n");
 
 	otMessageFree(aMessage);
 	otMessageAppend(outMessage, __isle_wbuf, wi);
